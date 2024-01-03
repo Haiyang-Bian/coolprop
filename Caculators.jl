@@ -211,3 +211,90 @@ function caculate(input::TableOverCriticalArgs)
         error("出错了!")
     end
 end
+"""
+起始,步长,终止信息体
+"""
+struct StartStepStop
+    start::String
+    step::String
+    stop::String
+end
+"""
+重载迭代器
+"""
+Base.StepRange(sss::StartStepStop) = StepRange(uparse(s.start), uparse(s.step), uparse(s.stop))
+"""
+绘制焓熵图的信息体
+"""
+struct HSDiagram
+    media::String
+    tspan::StartStepStop
+    pspan::StartStepStop
+    vspan::StartStepStop
+    qspan::StartStepStop
+end
+"""
+绘制焓熵图的函数
+"""
+function diagram(input::HSDiagram)
+    ans = Dict()
+    points_num = 50
+    e = 0.1
+    if !isnothing(input.tspan)
+        # 绘制等温线
+        p0 = (PropsSI("P_min", input.media) + e) * u"Pa"
+        pm = (PropsSI("P_max", input.media) - e) * u"Pa"
+        pspan = range(p0, pm, points_num)
+        t_dict = Dict()
+        for line in StepRange(input.tspan)
+            s = PropsSI.("S", "P", pspan, "T", line, input.media)
+            h = PropsSI.("H", "P", pspan, "T", line, input.media)
+            line_dict = Dict("s" => s, "h" => h)
+            get!(t_dict, line, line_dict)
+        end
+        get!(ans, "T", t_dict)
+    end
+    if !isnothing(input.pspan)
+        # 绘制等压线
+        t0 = (PropsSI("T_min", input.media) + e) * u"K"
+        tm = (PropsSI("T_max", input.media) - e) * u"K"
+        tspan = range(t0, tm, points_num)
+        p_dict = Dict()
+        for line in StepRange(input.pspan)
+            s = PropsSI.("S", "T", tspan, "P", line, input.media)
+            h = PropsSI.("H", "T", tspan, "P", line, input.media)
+            line_dict = Dict("s" => s, "h" => h)
+            get!(p_dict, line, line_dict)
+        end
+        get!(ans, "P", p_dict)
+    end
+    if !isnothing(input.vspan)
+        # 绘制等体积线
+        t0 = (PropsSI("T_min", input.media) + e) * u"K"
+        tm = (PropsSI("T_max", input.media) - e) * u"K"
+        tspan = range(t0, tm, points_num)
+        v_dict = Dict()
+        for line in 1 ./ StepRange(input.vspan)
+            s = PropsSI.("S", "T", tspan, "D", line, input.media)
+            h = PropsSI.("H", "T", tspan, "D", line, input.media)
+            line_dict = Dict("s" => s, "h" => h)
+            get!(v_dict, line, line_dict)
+        end
+        get!(ans, "V", v_dict)
+    end
+    if !isnothing(input.qspan)
+        # 绘制等干度线
+        t0 = (PropsSI("T_min", input.media) + e) * u"K"
+        tm = (PropsSI("Tcrit", input.media) - e) * u"K"
+        tspan = range(t0, tm, points_num)
+        q_dict = Dict()
+        for line in StepRange(input.qspan)
+            s = PropsSI.("S", "T", tspan, "Q", line, input.media)
+            h = PropsSI.("H", "T", tspan, "Q", line, input.media)
+            line_dict = Dict("s" => s, "h" => h)
+            get!(q_dict, line, line_dict)
+        end
+        get!(ans, "Q", q_dict)
+    end
+    return ans
+end

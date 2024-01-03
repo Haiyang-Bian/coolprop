@@ -18,4 +18,9 @@ end
     return caculate(request)
 end
 
-serve()
+@post "/plot/hsdiagram" function (req::HTTP.Request)
+    request = json(req, HSDiagram)
+    return diagram(request)
+end
+
+serve(async=true)
