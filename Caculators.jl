@@ -222,7 +222,8 @@ end
 """
 重载迭代器
 """
-Base.StepRange(sss::StartStepStop) = StepRange(uparse(s.start), uparse(s.step), uparse(s.stop))
+Base.StepRange(sss::StartStepStop) = StepRange(uparse(sss.start), uparse(sss.step), uparse(sss.stop))
+global points = 50
 """
 绘制焓熵图的信息体
 """
@@ -238,7 +239,7 @@ end
 """
 function diagram(input::HSDiagram)
     ans = Dict()
-    points_num = 50
+    points_num = points
     e = 0.1
     if !isnothing(input.tspan)
         # 绘制等温线
@@ -293,6 +294,65 @@ function diagram(input::HSDiagram)
             h = PropsSI.("H", "T", tspan, "Q", line, input.media)
             line_dict = Dict("s" => s, "h" => h)
             get!(q_dict, line, line_dict)
+        end
+        get!(ans, "Q", q_dict)
+    end
+    return ans
+end
+"""
+绘制对数压焓图的信息体
+"""
+struct LogPHDiagram
+    media::String
+    tspan::StartStepStop
+    sspan::StartStepStop
+    vspan::StartStepStop
+    qspan::StartStepStop
+end
+"""
+绘制对数压焓图图的函数
+"""
+function diagram(input::LogPHDiagram)
+    points_num = points
+    e = 0.1
+    p0 = (PropsSI("P_min", input.media) + e) * u"Pa"
+    pm = (PropsSI("P_max", input.media) - e) * u"Pa"
+    pspan = range(p0, pm, points_num)
+    logp = log10.(pspan)
+    ans = Dict("LogP" => logp)
+    if !isnothing(input.tspan)
+        # 绘制等温线
+        t_dict = Dict()
+        for line in StepRange(input.tspan)
+            h = PropsSI.("H", "P", pspan, "T", line, input.media)
+            get!(t_dict, line, h)
+        end
+        get!(ans, "T", t_dict)
+    end
+    if !isnothing(input.sspan)
+        # 绘制等熵线
+        s_dict = Dict()
+        for line in StepRange(input.sspan)
+            h = PropsSI.("H", "P", pspan, "S", line, input.media)
+            get!(s_dict, line, h)
+        end
+        get!(ans, "S", s_dict)
+    end
+    if !isnothing(input.vspan)
+        # 绘制等体积线
+        v_dict = Dict()
+        for line in 1 ./ StepRange(input.vspan)
+            h = PropsSI.("H", "P", pspan, "D", line, input.media)
+            get!(v_dict, line, h)
+        end
+        get!(ans, "V", v_dict)
+    end
+    if !isnothing(input.qspan)
+        # 绘制等干度线
+        q_dict = Dict()
+        for line in StepRange(input.qspan)
+            h = PropsSI.("H", "P", pspan, "Q", line, input.media)
+            get!(q_dict, line, h)
         end
         get!(ans, "Q", q_dict)
     end
